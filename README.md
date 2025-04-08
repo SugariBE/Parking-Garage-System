@@ -1,65 +1,117 @@
-Parking Garage System
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <set>
+#include <map>
+#include <string>
 
-Overview:
+using namespace std;
 
-This program simulates the management of a parking garage that can accommodate different types of vehicles (Car, Bike, and Truck). 
-The garage has a limited number of parking slots and a queue for waiting vehicles when the garage is full. 
-Vehicles are identified by their license plates, and the system tracks the total time spent by each vehicle in the garage.
+class Vehicle {
+protected:
+    string licensePlate;
+    int entryTime;
 
-Classes:
-Vehicle (Abstract Base Class)
+public:
+    Vehicle(string plate, int time) : licensePlate(plate), entryTime(time) {}
 
-Attributes:
+    virtual ~Vehicle() {}
 
-licensePlate: A string representing the vehicle’s license plate.
-entryTime: The time at which the vehicle enters the garage.
+    string getPlate() const { return licensePlate; }
+    int getEntryTime() const { return entryTime; }
+};
 
-Methods:
+class Car : public Vehicle {
+public:
+    Car(string plate, int time) : Vehicle(plate, time) {}
+};
 
-getPlate(): Returns the vehicle's license plate.
-getEntryTime(): Returns the entry time of the vehicle.
-Car, Bike, and Truck (Derived Classes from Vehicle)
-These classes inherit from the Vehicle class and represent specific vehicle types.
-Each subclass calls the base class constructor to initialize licensePlate and entryTime.
+class Bike : public Vehicle {
+public:
+    Bike(string plate, int time) : Vehicle(plate, time) {}
+};
 
-ParkingSlot
-Attributes:
+class Truck : public Vehicle {
+public:
+    Truck(string plate, int time) : Vehicle(plate, time) {}
+};
 
-isOccupied: A boolean flag to indicate whether the parking slot is occupied.
-parkedVehicle: A pointer to the vehicle currently parked in the slot (if any).
+class ParkingSlot {
+public:
+    bool isOccupied = false;
+    Vehicle* parkedVehicle = nullptr;
+};
 
-Garage
-Attributes:
+class Garage {
+public:
+    vector<ParkingSlot> slots;
+    queue<Vehicle*> wait;
+    set<string> plates;
+    map<string, int> plates_time;
 
-slots: A vector of ParkingSlot objects that represent the parking slots in the garage.
-wait: A queue that holds vehicles waiting for an available parking slot.
-plates: A set that keeps track of the license plates of vehicles currently in the garage.
-plates_time: A map to store the total time spent by each vehicle in the garage, keyed by their license plates.
+    Garage(int totalSlots) {
+        slots.resize(totalSlots);
+    }
 
-Methods:
+    void enterGarage(Vehicle* v) {
+        string plate = v->getPlate();
+        if (plates.count(plate)) {
+            cout << "Vehicle already in garage.\n";
+            return;
+        }
 
-enterGarage(Vehicle* v): Handles the process of a vehicle entering the garage.
-If a vehicle's license plate is already in the garage, it is not allowed to enter again.
-If there is an available slot, the vehicle is parked there. If not, the vehicle is added to the waiting queue.
-exitGarage(string plate, int exitTime): Handles the process of a vehicle exiting the garage.
-If the vehicle is found in the garage, it calculates the time spent, removes the vehicle, and frees the slot.
-If there are any vehicles in the waiting queue, the next vehicle is allowed to enter the garage.
-showStats(): Displays the total time spent in the garage for each vehicle.
+        for (auto& slot : slots) {
+            if (!slot.isOccupied) {
+                slot.isOccupied = true;
+                slot.parkedVehicle = v;
+                plates.insert(plate);
+                cout << "Parked: " << plate << endl;
+                return;
+            }
+        }
 
-Program Flow:
-The program starts by initializing a Garage object with 2 parking slots.
-Three vehicles (a Car, a Bike, and a Truck) try to enter the garage.
-The first two vehicles (Car and Bike) are successfully parked in the available slots.
-The Truck, which arrives when both slots are filled, is added to the waiting queue.
-The Car and Bike exit the garage, and the time spent by each vehicle is calculated and printed.
-The total time spent by each vehicle in the garage is displayed.
+        wait.push(v);
+        cout << "Garage full. Added " << plate << " to waiting queue.\n";
+    }
 
-Sample Output:
+    void exitGarage(string plate, int exitTime) {
+        for (auto& slot : slots) {
+            if (slot.isOccupied && slot.parkedVehicle->getPlate() == plate) {
+                int timeSpent = exitTime - slot.parkedVehicle->getEntryTime();
+                plates_time[plate] += timeSpent;
+                plates.erase(plate);
+                delete slot.parkedVehicle;
+                slot.parkedVehicle = nullptr;
+                slot.isOccupied = false;
+                cout << "Exited: " << plate << " | Time spent: " << timeSpent << endl;
 
-Parked: ABC123
-Parked: XYZ456
-Garage full. Added DEF789 to waiting queue.
-Exited: ABC123 | Time spent: 10
-Exited: XYZ456 | Time spent: 13
-Plate: ABC123, Total Time: 10
-Plate: XYZ456, Total Time: 13
+                if (!wait.empty()) {
+                    Vehicle* next = wait.front();
+                    wait.pop();
+                    enterGarage(next);
+                }
+                return;
+            }
+        }
+        cout << "Vehicle not found in garage.\n";
+    }
+
+    void showStats() {
+        for (auto& [plate, time] : plates_time) {
+            cout << "Plate: " << plate << ", Total Time: " << time << endl;
+        }
+    }
+};
+
+int main() {
+    Garage g(2); // garage with 2 slots
+    g.enterGarage(new Car("ABC123", 10));
+    g.enterGarage(new Bike("XYZ456", 12));
+    g.enterGarage(new Truck("DEF789", 15)); // goes to wait queue
+
+    g.exitGarage("ABC123", 20);
+    g.exitGarage("XYZ456", 25);
+
+    g.showStats();
+    return 0;
+}
